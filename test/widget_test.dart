@@ -1,19 +1,17 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mymetrquot/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('meter screen shows core controls and values', (tester) async {
+    await tester.pumpWidget(const TaxiMeterApp());
 
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Digital Taxi Meter'), findsOneWidget);
+    expect(find.text('10.00 EGP'), findsOneWidget);
+    expect(find.text('Elapsed Time'), findsOneWidget);
+    expect(find.text('Distance'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Pause'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
   });
 }
