@@ -8,7 +8,10 @@ import '../models/trip.dart';
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
-  static const String baseUrl = 'http://localhost/backend';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2/backend',
+  );
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _tokenKey = 'auth_token';
 
