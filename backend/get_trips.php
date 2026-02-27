@@ -8,9 +8,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     sendJson(['error' => 'Method not allowed'], 405);
 }
 
-requireAuth();
+$user = requireAuth();
+$userId = (int) $user['sub'];
+$role = (string) $user['role'];
 
-$stmt = getConnection()->query('SELECT id, distance, duration, fare, date FROM trips ORDER BY id DESC');
+if ($role === 'admin') {
+    $stmt = getConnection()->query(
+        'SELECT id, ride_request_id, rider_id, driver_id, offer_id, distance_km, duration_sec, fare, status, started_at, completed_at, created_at
+         FROM Trips ORDER BY id DESC'
+    );
+} else {
+    $stmt = getConnection()->prepare(
+        'SELECT id, ride_request_id, rider_id, driver_id, offer_id, distance_km, duration_sec, fare, status, started_at, completed_at, created_at
+         FROM Trips WHERE rider_id = :user_id OR driver_id = :user_id ORDER BY id DESC'
+    );
+    $stmt->execute(['user_id' => $userId]);
+}
+
 $trips = $stmt->fetchAll();
-
 sendJson(['trips' => $trips]);

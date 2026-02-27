@@ -9,29 +9,39 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $user = requireAuth();
+$input = readJsonBody();
 
-$input = json_decode(file_get_contents('php://input') ?: '{}', true);
-$distance = (float) ($input['distance'] ?? 0);
-$duration = (int) ($input['duration'] ?? 0);
+$driverId = (int) ($input['driver_id'] ?? 0);
+$riderId = (int) ($input['rider_id'] ?? 0);
 $fare = (float) ($input['fare'] ?? 0);
-$date = trim((string) ($input['date'] ?? ''));
+$distance = (float) ($input['distance_km'] ?? $input['distance'] ?? 0);
+$duration = (int) ($input['duration_sec'] ?? $input['duration'] ?? 0);
+$status = (string) ($input['status'] ?? 'created');
 
-if ($distance <= 0 || $duration <= 0 || $fare < 0 || $date === '') {
+if ($driverId <= 0 || $riderId <= 0 || $fare < 0) {
     sendJson(['error' => 'Invalid trip payload'], 400);
 }
 
 $stmt = getConnection()->prepare(
-    'INSERT INTO trips (distance, duration, fare, date) VALUES (:distance, :duration, :fare, :date)'
+    'INSERT INTO Trips (ride_request_id, rider_id, driver_id, offer_id, distance_km, duration_sec, fare, status, started_at)
+     VALUES (:ride_request_id, :rider_id, :driver_id, :offer_id, :distance_km, :duration_sec, :fare, :status, :started_at)'
 );
 $stmt->execute([
-    'distance' => $distance,
-    'duration' => $duration,
+    'ride_request_id' => $input['ride_request_id'] ?? null,
+    'rider_id' => $riderId,
+    'driver_id' => $driverId,
+    'offer_id' => $input['offer_id'] ?? null,
+    'distance_km' => $distance,
+    'duration_sec' => $duration,
     'fare' => $fare,
-    'date' => $date,
+    'status' => $status,
+    'started_at' => $input['started_at'] ?? null,
 ]);
+
+$tripId = (int) getConnection()->lastInsertId();
+writeAuditLog((int) $user['sub'], 'trip.create', 'Trips', $tripId, ['status' => $status]);
 
 sendJson([
     'message' => 'Trip added successfully',
-    'trip_id' => (int) getConnection()->lastInsertId(),
-    'user' => $user['username'] ?? null,
+    'trip_id' => $tripId,
 ], 201);

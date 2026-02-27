@@ -1,62 +1,51 @@
 # mymetrquot
 
-Digital taxi meter application built with Flutter, with a secure PHP/MySQL backend for trip persistence.
+Flutter + PHP/MySQL MVP for a ride-hailing style taxi meter platform.
 
-## Features
+## Implemented MVP modules
 
-- Live meter UI with:
-  - Current fare in EGP
-  - Elapsed trip time
-  - Distance traveled
-- Start, Pause, and Reset controls
-- Secure login flow against PHP API (`login.php`) returning JWT
-- Authenticated trip CRUD over HTTP with `Authorization: Bearer <token>`
-- Trips list rendered in Flutter (`ListView`) with delete action
-- Fare calculation with configurable constants:
-  - Base fare
-  - Per-kilometer rate
-  - Per-minute rate
-- GPS distance tracking via `geolocator`
+- Authentication with JWT (`register.php`, `login.php`) and role claims (`rider`, `driver`, `admin`).
+- Rider ride-request flow (`create_ride_request.php`, `get_ride_requests.php`).
+- Driver offer flow (`create_offer.php`, `get_offers.php`, `update_offer_status.php`).
+- Trip lifecycle (`add_trip.php`, `get_trips.php`, `update_trip_status.php`, `delete_trip.php`).
+- Chat negotiation (`send_message.php`, `get_messages.php`).
+- Ratings (`submit_rating.php`).
+- Notifications (`get_notifications.php`, `mark_notification_read.php`) with server-side notification creation hooks.
+- Admin audit endpoint (`admin_get_audit_logs.php`).
+- Live tracking data APIs (`update_location.php`, `get_trip_route.php`) for map route rendering and playback.
 
-## Backend setup (`/backend`)
+## Flutter notes
 
-1. Create MySQL database (example: `mymetrquot`) and import schema:
+- `lib/services/api_client.dart` includes endpoint helpers for:
+  - auth
+  - ride requests
+  - offers
+  - trips
+  - messages
+  - ratings
+  - notifications
+  - live location route retrieval
+- Backend URL is configured via `--dart-define API_BASE_URL=...` with default `http://10.0.2.2/backend`.
 
-```bash
-mysql -u root -p mymetrquot < backend/schema.sql
-```
+## Database
 
-2. Configure DB credentials and JWT secret in `backend/config.php`.
-3. Serve backend via Apache/Nginx + PHP (or php built-in server for local testing).
+Import `backend/schema.sql` to create these requirement-aligned tables:
 
-### API endpoints
+- `Users`
+- `DriverProfiles`
+- `Vehicles`
+- `RideRequests`
+- `Offers`
+- `Trips`
+- `Messages`
+- `Ratings`
+- `Disputes`
+- `Documents`
+- `Notifications`
+- `AuditLogs`
+- `Locations`
+- `Settings`
 
-- `POST /backend/login.php` → `{ username, password }` → returns JWT
-- `POST /backend/add_trip.php` (JWT required)
-- `GET /backend/get_trips.php` (JWT required)
-- `POST /backend/delete_trip.php` (JWT required)
+## CI
 
-All SQL access uses prepared statements.
-
-## Flutter setup
-
-1. Install dependencies:
-
-```bash
-flutter pub get
-```
-
-2. Update `ApiClient.baseUrl` in `lib/services/api_client.dart` to match your backend URL.
-   - Android emulator typically uses `http://10.0.2.2/<path>` instead of `localhost`.
-
-3. Run app:
-
-```bash
-flutter run
-```
-
-## Test
-
-```bash
-flutter test
-```
+GitHub Actions workflow `.github/workflows/flutter-build.yml` now runs tests before Android/iOS builds.
