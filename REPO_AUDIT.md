@@ -1,84 +1,75 @@
-# mymetrquot Repository Audit
+# mymetrquot Repository Audit (Post-fix)
 
-## 1) Flutter project structure
+## 1) Flutter project structure and MVP alignment
 
-Status: **Partially complete**.
+### Complete
+- Core Flutter app exists with trip meter and backend sync UI in `lib/main.dart`.
+- API client supports the required MVP endpoint domains in `lib/services/api_client.dart`.
 
-- Present: `pubspec.yaml`, `lib/main.dart`.
-- Missing from repository: `android/` and `ios/` directories.
-- Note: CI currently runs `flutter create --platforms=android,ios .` to regenerate those folders during build.
+### Missing / partial
+- Full multi-screen UX for rider/driver/admin panels is not yet implemented in Flutter UI (backend and service layer support exists).
+- No embedded map widget yet (Google Maps/Mapbox visualization should be added in Flutter presentation layer).
+- No FCM/APNs client integration in Flutter UI yet; notification APIs are ready server-side.
 
-### Suggested fix
+## 2) Backend files and schema consistency
 
-Generate and commit native folders so local developers can build/run without relying on CI regeneration:
+### Complete
+- Schema now contains all required tables:
+  `Users, DriverProfiles, Vehicles, RideRequests, Offers, Trips, Messages, Ratings, Disputes, Documents, Notifications, AuditLogs, Locations, Settings`.
+- Backend APIs cover auth, ride requests, offers, trips, messages, ratings, notifications, and admin audit logs.
 
-```bash
-flutter create --platforms=android,ios .
-```
+### Missing / partial
+- Disputes/Documents/Settings now have baseline endpoints (`create_dispute.php`, `upload_document.php`, `get_settings.php`, `update_settings.php`) but still need richer workflows.
+- No migration/versioning framework (raw SQL only).
 
-## 2) Backend API files
+## 3) JWT auth + privacy/security
 
-Status: **Complete**.
+### Complete
+- JWT issue/validation + role claim checking implemented.
+- Authorization required on protected routes.
+- Security response headers added (`X-Content-Type-Options`, `X-Frame-Options`).
+- Audit log writes implemented on key state changes.
 
-All required files are present:
-- `backend/config.php`
-- `backend/login.php`
-- `backend/add_trip.php`
-- `backend/get_trips.php`
-- `backend/delete_trip.php`
+### Missing / partial
+- Rate limiting, refresh tokens, and key rotation automation are not implemented.
+- HTTPS/TLS enforcement is deployment-level and not represented in repo.
 
-## 3) Database schema
+## 4) Maps/live tracking requirements
 
-Status: **Mostly complete with naming mismatch**.
+### Complete
+- Backend supports location ingestion and route retrieval (`update_location.php`, `get_trip_route.php`).
 
-- `users` table includes `username` and `password_hash` (secure form of password storage).
-- `trips` table includes `distance`, `duration`, `fare`, `date`.
+### Missing / partial
+- Flutter map rendering + polyline drawing + real-time marker updates are pending UI implementation.
 
-### Suggested adjustment (if strict field naming is required)
+## 5) Chat and push notifications
 
-If your requirement is exactly `password` (not recommended), rename the column and update queries. Prefer keeping `password_hash` for security.
+### Complete
+- Chat APIs implemented (`send_message.php`, `get_messages.php`).
+- Notification APIs implemented (`get_notifications.php`, `mark_notification_read.php`), and new-message events create notification records.
 
-## 4) JWT authentication
+### Missing / partial
+- Device push transport integration (Firebase/APNs provider) is not yet connected.
 
-Status: **Implemented correctly for a lightweight API**.
+## 6) API client endpoint coverage
 
-- JWT creation in `backend/utils.php` (`createJwt`).
-- Signature validation + issuer/expiry checks in `validateJwt`.
-- Bearer token extraction in `getBearerToken`.
-- Protected endpoints call `requireAuth()`.
+### Complete
+- `lib/services/api_client.dart` now includes methods for auth, ride requests, offers, trips, messages, ratings, notifications, and live route tracking.
+- Base URL uses `API_BASE_URL` with `http://10.0.2.2/backend` default.
 
-### Recommended hardening
+## 7) GitHub Actions APK build
 
-- Store trips per user by adding `user_id` to `trips` and filtering in `get_trips.php`.
-- Rotate `JWT_SECRET` to a long random value and avoid committing secrets.
+### Complete
+- Workflow exists and builds Android/iOS.
+- Tests are now run before build steps.
 
-## 5) Flutter API base URL
+### Missing / partial
+- Feature validation in CI is limited to `flutter test`; no integration/e2e suite yet.
 
-Status: **Updated in this patch**.
+## 8) High-priority next steps
 
-- Changed `lib/services/api_client.dart` to use a configurable URL via `--dart-define`.
-- Default now targets Android emulator loopback (`http://10.0.2.2/backend`) instead of `localhost`.
-
-## 6) GitHub Actions build workflow
-
-Status: **Present and functional**.
-
-- Workflow file exists at `.github/workflows/flutter-build.yml`.
-- It installs Flutter, runs `flutter pub get`, builds APK, and uploads artifact.
-
-### Suggested improvement
-
-- Consider running tests before build:
-
-```yaml
-- name: Run tests
-  run: flutter test
-```
-
-## 7) Missing/incomplete/misconfigured items summary
-
-1. Missing committed Flutter platform folders: `android/`, `ios/`.
-2. API base URL originally used `localhost` (mobile-incompatible); corrected in this patch.
-3. Database requirement wording says `password`; implementation uses `password_hash` (secure, but naming mismatch if strict).
-4. Trips are not user-scoped despite JWT authentication.
-5. `backend/config.php` contains hardcoded local credentials and placeholder JWT secret; should be environment-based for production.
+1. Add Flutter role-based navigation (Rider Home / Driver Home / Admin Dashboard).
+2. Add map UI integration (`google_maps_flutter` or `mapbox_gl`) for pickup/dropoff, route, and live tracking markers.
+3. Integrate push delivery (FCM/APNs) and token registration endpoint.
+4. Expand Disputes/Documents/Settings workflows (status transitions, moderation actions) and wire them in Flutter.
+5. Add integration tests for full trip lifecycle (request → offer → chat → trip → rating).

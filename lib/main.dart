@@ -50,6 +50,8 @@ class _TaxiMeterPageState extends State<TaxiMeterPage> {
 
   bool _isRunning = false;
   bool _isAuthenticated = false;
+  int? _currentUserId;
+  String? _currentUserRole;
   bool _isLoadingTrips = false;
   Position? _lastPosition;
   String _statusMessage = 'Press Start to begin trip.';
@@ -66,12 +68,15 @@ class _TaxiMeterPageState extends State<TaxiMeterPage> {
 
   Future<void> _login() async {
     try {
-      await _apiClient.login(
+      final auth = await _apiClient.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
+      final user = auth['user'] as Map<String, dynamic>?;
       setState(() {
         _isAuthenticated = true;
+        _currentUserId = (user?['id'] as num?)?.toInt();
+        _currentUserRole = user?['role'] as String?;
       });
       _updateStatus('Authenticated. You can sync trips now.');
       await _loadTrips();
@@ -125,10 +130,12 @@ class _TaxiMeterPageState extends State<TaxiMeterPage> {
 
     try {
       await _apiClient.addTrip(
-        distance: _distanceKm,
-        duration: _elapsed.inSeconds,
+        riderId: _currentUserRole == 'rider' ? (_currentUserId ?? 1) : 1,
+        driverId: _currentUserRole == 'driver' ? (_currentUserId ?? 2) : 2,
         fare: _fare,
-        date: DateTime.now().toIso8601String(),
+        distanceKm: _distanceKm,
+        durationSec: _elapsed.inSeconds,
+        status: 'completed',
       );
       _updateStatus('Trip saved successfully.');
       await _loadTrips();
