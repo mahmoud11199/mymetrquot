@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   build-android:
@@ -14,16 +15,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.41.2
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.2'
           channel: stable
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock', '**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Install dependencies
         run: flutter pub get
 
       - name: Ensure native project folders exist
         run: flutter create --platforms=android,ios .
+
+      - name: Clean build outputs
+        run: flutter clean
+
+      - name: Reinstall dependencies
+        run: flutter pub get
 
       - name: Run tests
         run: flutter test
@@ -36,34 +69,3 @@ jobs:
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-
-  build-ios:
-    name: Build iOS (no codesign)
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Ensure native project folders exist
-        run: flutter create --platforms=android,ios .
-
-      - name: Run tests
-        run: flutter test
-
-      - name: Build iOS release
-        run: flutter build ios --release --no-codesign
-
-      - name: Upload iOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-ios
-          path: build/ios
