@@ -1,419 +1,104 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import 'fare_calculator.dart';
-import 'models/trip.dart';
-import 'services/api_client.dart';
+import 'screens/auth_screen.dart';
+import 'screens/home_shell.dart';
 
-void main() {
-  runApp(const TaxiMeterApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env', isOptional: true);
+  runApp(const MyMetrQuotApp());
 }
 
-class TaxiMeterApp extends StatelessWidget {
-  const TaxiMeterApp({super.key});
+class MyMetrQuotApp extends StatelessWidget {
+  const MyMetrQuotApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF1976D2),
+      primary: const Color(0xFF1976D2),
+      secondary: const Color(0xFFFFC107),
+      surface: const Color(0xFFF5F5F5),
+    );
+
+    final textTheme = GoogleFonts.robotoTextTheme().copyWith(
+      headlineLarge: GoogleFonts.roboto(fontWeight: FontWeight.bold),
+      headlineMedium: GoogleFonts.roboto(fontWeight: FontWeight.bold),
+      headlineSmall: GoogleFonts.roboto(fontWeight: FontWeight.bold),
+      titleLarge: GoogleFonts.roboto(fontWeight: FontWeight.bold),
+      bodyLarge: GoogleFonts.roboto(fontWeight: FontWeight.w400),
+      bodyMedium: GoogleFonts.roboto(fontWeight: FontWeight.w400),
+    );
+
     return MaterialApp(
-      title: 'Digital Taxi Meter',
+      title: 'mymetrquot',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-      ),
-      home: const TaxiMeterPage(),
-    );
-  }
-}
-
-class TaxiMeterPage extends StatefulWidget {
-  const TaxiMeterPage({super.key});
-
-  @override
-  State<TaxiMeterPage> createState() => _TaxiMeterPageState();
-}
-
-class _TaxiMeterPageState extends State<TaxiMeterPage> {
-  static const _fareCalculator = FareCalculator();
-
-  final ApiClient _apiClient = ApiClient();
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  Timer? _timer;
-  StreamSubscription<Position>? _positionSubscription;
-
-  Duration _elapsed = Duration.zero;
-  double _distanceKm = 0;
-  double _fare = _fareCalculator.baseFare;
-
-  bool _isRunning = false;
-  bool _isAuthenticated = false;
-  int? _currentUserId;
-  String? _currentUserRole;
-  bool _isLoadingTrips = false;
-  Position? _lastPosition;
-  String _statusMessage = 'Press Start to begin trip.';
-  List<Trip> _trips = const [];
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _positionSubscription?.cancel();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _login() async {
-    try {
-      final auth = await _apiClient.login(
-        _usernameController.text.trim(),
-        _passwordController.text,
-      );
-      final user = auth['user'] as Map<String, dynamic>?;
-      setState(() {
-        _isAuthenticated = true;
-        _currentUserId = (user?['id'] as num?)?.toInt();
-        _currentUserRole = user?['role'] as String?;
-      });
-      _updateStatus('Authenticated. You can sync trips now.');
-      await _loadTrips();
-    } catch (error) {
-      _updateStatus(error.toString());
-    }
-  }
-
-  Future<void> _logout() async {
-    await _apiClient.logout();
-    setState(() {
-      _isAuthenticated = false;
-      _trips = const [];
-    });
-    _updateStatus('Logged out.');
-  }
-
-  Future<void> _loadTrips() async {
-    if (!_isAuthenticated) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingTrips = true;
-    });
-
-    try {
-      final trips = await _apiClient.fetchTrips();
-      setState(() {
-        _trips = trips;
-      });
-    } catch (error) {
-      _updateStatus(error.toString());
-    } finally {
-      setState(() {
-        _isLoadingTrips = false;
-      });
-    }
-  }
-
-  Future<void> _saveCurrentTrip() async {
-    if (!_isAuthenticated) {
-      _updateStatus('Please login before saving trips.');
-      return;
-    }
-
-    if (_distanceKm <= 0 || _elapsed.inSeconds <= 0) {
-      _updateStatus('Trip must have distance and duration before saving.');
-      return;
-    }
-
-    try {
-      await _apiClient.addTrip(
-        riderId: _currentUserRole == 'rider' ? (_currentUserId ?? 1) : 1,
-        driverId: _currentUserRole == 'driver' ? (_currentUserId ?? 2) : 2,
-        fare: _fare,
-        distanceKm: _distanceKm,
-        durationSec: _elapsed.inSeconds,
-        status: 'completed',
-      );
-      _updateStatus('Trip saved successfully.');
-      await _loadTrips();
-    } catch (error) {
-      _updateStatus(error.toString());
-    }
-  }
-
-  Future<void> _deleteTrip(int tripId) async {
-    try {
-      await _apiClient.deleteTrip(tripId);
-      _updateStatus('Trip deleted.');
-      await _loadTrips();
-    } catch (error) {
-      _updateStatus(error.toString());
-    }
-  }
-
-  Future<void> _startMeter() async {
-    if (_isRunning) {
-      return;
-    }
-
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _updateStatus('Location services are disabled.');
-      return;
-    }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      _updateStatus('Location permission is denied.');
-      return;
-    }
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _elapsed += const Duration(seconds: 1);
-        _recalculateFare();
-      });
-    });
-
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
-      ),
-    ).listen((position) {
-      if (_lastPosition != null) {
-        final traveledMeters = Geolocator.distanceBetween(
-          _lastPosition!.latitude,
-          _lastPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-
-        setState(() {
-          _distanceKm += traveledMeters / 1000;
-          _lastPosition = position;
-          _recalculateFare();
-        });
-      } else {
-        _lastPosition = position;
-      }
-    });
-
-    setState(() {
-      _isRunning = true;
-      _statusMessage = 'Trip running...';
-    });
-  }
-
-  void _pauseMeter() {
-    if (!_isRunning) {
-      return;
-    }
-
-    _timer?.cancel();
-    _timer = null;
-    _positionSubscription?.cancel();
-    _positionSubscription = null;
-
-    setState(() {
-      _isRunning = false;
-      _statusMessage = 'Trip paused.';
-    });
-  }
-
-  void _resetMeter() {
-    _timer?.cancel();
-    _positionSubscription?.cancel();
-
-    setState(() {
-      _timer = null;
-      _positionSubscription = null;
-      _elapsed = Duration.zero;
-      _distanceKm = 0;
-      _fare = _fareCalculator.baseFare;
-      _isRunning = false;
-      _lastPosition = null;
-      _statusMessage = 'Press Start to begin trip.';
-    });
-  }
-
-  void _recalculateFare() {
-    _fare = _fareCalculator.calculateFare(
-      elapsed: _elapsed,
-      distanceKm: _distanceKm,
-    );
-  }
-
-  void _updateStatus(String message) {
-    setState(() {
-      _statusMessage = message;
-    });
-  }
-
-  String get _formattedTime {
-    final hours = _elapsed.inHours;
-    final minutes = _elapsed.inMinutes.remainder(60);
-    final seconds = _elapsed.inSeconds.remainder(60);
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Digital Taxi Meter'),
-        actions: [
-          IconButton(
-            onPressed: _isAuthenticated ? _logout : null,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: _login,
-                child: const Text('Login'),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '${_fare.toStringAsFixed(2)} EGP',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _InfoRow(label: 'Elapsed Time', value: _formattedTime),
-                      const SizedBox(height: 8),
-                      _InfoRow(
-                        label: 'Distance',
-                        value: '${_distanceKm.toStringAsFixed(2)} km',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _startMeter,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start'),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _pauseMeter,
-                    icon: const Icon(Icons.pause),
-                    label: const Text('Pause'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _resetMeter,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Reset'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: _saveCurrentTrip,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save Trip'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Saved Trips',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  IconButton(
-                    onPressed: _loadTrips,
-                    icon: const Icon(Icons.sync),
-                  ),
-                ],
-              ),
-              if (_isLoadingTrips)
-                const Center(child: CircularProgressIndicator())
-              else
-                ListView.builder(
-                  itemCount: _trips.length,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemBuilder: (context, index) {
-                    final trip = _trips[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text('Fare: ${trip.fare.toStringAsFixed(2)} EGP'),
-                        subtitle: Text(
-                          'Distance: ${trip.distance.toStringAsFixed(2)} km • Duration: ${trip.duration}s\nDate: ${trip.date}',
-                        ),
-                        trailing: IconButton(
-                          onPressed: () => _deleteTrip(trip.id),
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+        textTheme: textTheme.apply(
+          bodyColor: const Color(0xFF212121),
+          displayColor: const Color(0xFF212121),
         ),
       ),
+      home: const AppEntryPoint(),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+class AppEntryPoint extends StatefulWidget {
+  const AppEntryPoint({super.key});
 
-  final String label;
-  final String value;
+  @override
+  State<AppEntryPoint> createState() => _AppEntryPointState();
+}
+
+class _AppEntryPointState extends State<AppEntryPoint> {
+  bool _authenticated = false;
+  String _role = 'rider';
+
+  void _onAuthCompleted(String role) {
+    setState(() {
+      _authenticated = true;
+      _role = role;
+    });
+  }
+
+  void _logout() {
+    setState(() {
+      _authenticated = false;
+      _role = 'rider';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.titleMedium),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
-      ],
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      transitionBuilder: (child, animation) {
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0.1, 0),
+          end: Offset.zero,
+        ).animate(animation);
+
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: offsetAnimation, child: child),
+        );
+      },
+      child: _authenticated
+          ? HomeShell(
+              key: const ValueKey('home-shell'),
+              role: _role,
+              onLogout: _logout,
+            )
+          : AuthScreen(
+              key: const ValueKey('auth-screen'),
+              onAuthenticated: _onAuthCompleted,
+            ),
     );
   }
 }

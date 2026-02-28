@@ -3,15 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mymetrquot/main.dart';
 
 void main() {
-  testWidgets('meter screen shows core controls and values', (tester) async {
-    await tester.pumpWidget(const TaxiMeterApp());
+  testWidgets('auth screen shows onboarding and auth actions', (tester) async {
+    await tester.pumpWidget(const MyMetrQuotApp());
 
-    expect(find.text('Digital Taxi Meter'), findsOneWidget);
-    expect(find.text('10.00 EGP'), findsOneWidget);
-    expect(find.text('Elapsed Time'), findsOneWidget);
-    expect(find.text('Distance'), findsOneWidget);
-    expect(find.text('Start'), findsOneWidget);
-    expect(find.text('Pause'), findsOneWidget);
-    expect(find.text('Reset'), findsOneWidget);
+    expect(find.text('Welcome to mymetrquot'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Register'), findsOneWidget);
+    expect(find.text('Select role'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
   });
 }
