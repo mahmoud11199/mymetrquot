@@ -25,7 +25,8 @@ Flutter + PHP/MySQL MVP for a ride-hailing style taxi meter platform.
   - ratings
   - notifications
   - live location route retrieval
-- Backend URL is configured via `--dart-define API_BASE_URL=...` with default `http://10.0.2.2/backend`.
+- Backend URL is configured via `--dart-define API_BASE_URL=...` with default `https://alalameyaforcontracting.iceiy.com/backend
+`.
 
 ## Database
 
