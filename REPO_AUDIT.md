@@ -55,7 +55,8 @@
 
 ### Complete
 - `lib/services/api_client.dart` now includes methods for auth, ride requests, offers, trips, messages, ratings, notifications, and live route tracking.
-- Base URL uses `API_BASE_URL` with `http://10.0.2.2/backend` default.
+- Base URL uses `API_BASE_URL` with `https://alalameyaforcontracting.iceiy.com/backend
+` default.
 
 ## 7) GitHub Actions APK build
 
