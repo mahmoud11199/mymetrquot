@@ -55,3 +55,7 @@ app.*.map.json
 # Android wrapper/runtime generated files
 /android/gradle/wrapper/gradle-wrapper.jar
 /android/local.properties
+
+# Release signing keystores (do not commit binary keys)
+android/app/my-release-key.jks
+*.jks
