@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/auth_screen.dart';
+import 'models/user.dart';
 import 'screens/home_shell.dart';
 
 Future<void> main() async {
@@ -58,19 +59,19 @@ class AppEntryPoint extends StatefulWidget {
 
 class _AppEntryPointState extends State<AppEntryPoint> {
   bool _authenticated = false;
-  String _role = 'rider';
+  User? _user;
 
-  void _onAuthCompleted(String role) {
+  void _onAuthCompleted(User user) {
     setState(() {
       _authenticated = true;
-      _role = role;
+      _user = user;
     });
   }
 
   void _logout() {
     setState(() {
       _authenticated = false;
-      _role = 'rider';
+      _user = null;
     });
   }
 
@@ -92,7 +93,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       child: _authenticated
           ? HomeShell(
               key: const ValueKey('home-shell'),
-              role: _role,
+              user: _user!,
               onLogout: _logout,
             )
           : AuthScreen(

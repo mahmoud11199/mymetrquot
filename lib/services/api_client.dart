@@ -10,8 +10,13 @@ import '../models/trip.dart';
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
-  static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'https://alalameyaforcontracting.iceiy.com/backend';
+  static String get baseUrl {
+    final configured = dotenv.env['API_BASE_URL'];
+    if (configured == null || configured.isEmpty) {
+      throw StateError('API_BASE_URL must be provided via .env');
+    }
+    return configured;
+  }
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _tokenKey = 'auth_token';
