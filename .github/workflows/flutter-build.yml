@@ -49,8 +49,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Ensure native project folders exist
-        run: flutter create --platforms=android,ios .
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Gradle wrapper jar (no binary committed)
+        run: |
+          echo "flutter.sdk=${FLUTTER_ROOT}" > android/local.properties
+          gradle -p android wrapper --gradle-version 8.10.2 --no-validate-url
+          test -f android/gradle/wrapper/gradle-wrapper.jar
 
       - name: Clean build outputs
         run: flutter clean
