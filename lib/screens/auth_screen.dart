@@ -29,52 +29,68 @@ class _AuthScreenState extends State<AuthScreen> {
     _passwordController.dispose();
     super.dispose();
   }
+  
+Future<void> _submitAuth() async {
+  final username = _usernameController.text.trim();
+  final email = _emailController.text.trim();
+  final password = _passwordController.text;
 
-  Future<void> _submitAuth() async {
-    final username = _usernameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+  if (username.isEmpty || password.isEmpty || (_registerMode && email.isEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields.')),
+    );
+    return;
+  }
 
-    if (username.isEmpty || password.isEmpty || (_registerMode && email.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
+  setState(() => _isSubmitting = true);
+  try {
+    if (_registerMode) {
+      await _apiClient.register(
+        username: username,
+        email: email,
+        password: password,
+        role: _selectedRole,
       );
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration succeeded. Logging you in...')),
+      );
     }
 
-    setState(() => _isSubmitting = true);
-    try {
-      if (_registerMode) {
-        await _apiClient.register(
-          username: username,
-          email: email,
-          password: password,
-          role: _selectedRole,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration succeeded. Logging you in...')),
-        );
-      }
+    // ✅ هنا بنخزن نتيجة تسجيل الدخول
+    final loginResult = await _apiClient.login(username, password);
+    if (!mounted) return;
 
-      await _apiClient.login(username, password);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Connected to server successfully.')));
-      widget.onAuthenticated(_selectedRole);
-    } catch (e) {
-      if (!mounted) return;
-      final rawError = e.toString();
-      final message = rawError.contains('failed') || rawError.contains('SocketException')
-          ? 'Connection failed. Please check your internet or server URL.'
-          : 'Invalid data or credentials. Please verify and try again.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message ($rawError)')));
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    // استخراج بيانات المستخدم من الاستجابة
+  final user = loginResult['user'];
+
+if (user == null || user is! Map<String, dynamic>) {
+  throw Exception('Invalid server response');
+}
+
+final userId = user['id']?.toString() ?? '';
+final userName = user['username'] ?? '';
+final userRole = user['role'] ?? '';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Connected to server successfully.')));
+
+    // ✅ بدل ما نبعت _selectedRole، نبعت بيانات السيرفر
+    widget.onAuthenticated("$userId|$userName|$userRole");
+  } catch (e) {
+    if (!mounted) return;
+    final rawError = e.toString();
+    final message = rawError.contains('failed') || rawError.contains('SocketException')
+        ? 'Connection failed. Please check your internet or server URL.'
+        : 'Invalid data or credentials. Please verify and try again.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message ($rawError)')));
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
+
+   
 
   @override
   Widget build(BuildContext context) {
