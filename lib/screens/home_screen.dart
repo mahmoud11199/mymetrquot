@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../services/api_client.dart';
 import 'ratings_screen.dart';
 import 'ride_request_details_screen.dart';
 import 'trip_live_screen.dart';
@@ -20,8 +21,10 @@ class _HomeScreenState extends State<HomeScreen>
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _fareController = TextEditingController(text: '50');
+  final _apiClient = ApiClient();
   late final AnimationController _markerController;
   bool _requestPlaced = false;
+  bool _isSubmittingRideRequest = false;
 
   @override
   void initState() {
@@ -54,6 +57,49 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     ));
+  }
+
+  Future<void> _createRideRequest() async {
+    final pickup = _pickupController.text.trim();
+    final dropoff = _dropoffController.text.trim();
+    final fare = double.tryParse(_fareController.text.trim());
+
+    if (pickup.isEmpty || dropoff.isEmpty || fare == null || fare <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please provide pickup, dropoff, and a valid fare.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmittingRideRequest = true);
+    try {
+      await _apiClient.createRideRequest({
+        'pickup_lat': 30.0444,
+        'pickup_lng': 31.2357,
+        'dropoff_lat': 30.0131,
+        'dropoff_lng': 31.2089,
+        'pickup_address': pickup,
+        'dropoff_address': dropoff,
+        'estimated_fare': fare,
+      });
+      if (!mounted) return;
+      setState(() => _requestPlaced = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ride request sent successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e.toString().contains('failed')
+          ? 'Connection error while sending ride request.'
+          : 'Invalid request data. Please review your entries.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message ($e)')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingRideRequest = false);
+      }
+    }
   }
 
   @override
@@ -116,14 +162,20 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const SizedBox(height: 10),
           FilledButton.icon(
-            onPressed: () => setState(() => _requestPlaced = true),
-            icon: const Icon(Icons.local_taxi),
+            onPressed: _isSubmittingRideRequest ? null : _createRideRequest,
+            icon: _isSubmittingRideRequest
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.local_taxi),
             label: const Text('Create Ride Request'),
           ),
           if (_requestPlaced)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Ride request created with animated markers.'),
+              child: Text('Ride request created and sent to backend successfully.'),
             ),
           const SizedBox(height: 12),
           Wrap(

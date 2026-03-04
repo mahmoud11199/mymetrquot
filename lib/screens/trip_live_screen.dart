@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_client.dart';
+
 class TripLiveScreen extends StatefulWidget {
   const TripLiveScreen({super.key});
 
@@ -8,8 +10,55 @@ class TripLiveScreen extends StatefulWidget {
 }
 
 class _TripLiveScreenState extends State<TripLiveScreen> {
-  final statuses = ['accepted', 'started', 'ended'];
+  final statuses = ['driver_arriving', 'in_progress', 'completed'];
+  final _tripIdController = TextEditingController();
+  final _apiClient = ApiClient();
   int _index = 0;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _tripIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _advanceStatus() async {
+    final tripId = int.tryParse(_tripIdController.text.trim());
+    if (tripId == null || tripId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid Trip ID.')),
+      );
+      return;
+    }
+
+    if (_index >= statuses.length - 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trip already reached final status.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final nextIndex = _index + 1;
+    try {
+      await _apiClient.updateTripStatus(tripId, statuses[nextIndex]);
+      if (!mounted) return;
+      setState(() => _index = nextIndex);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Trip status updated to ${statuses[nextIndex]}.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e.toString().contains('failed')
+          ? 'Connection error while updating trip status.'
+          : 'Invalid trip status request. Please verify trip id/state.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message ($e)')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +72,12 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            TextField(
+              controller: _tripIdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Trip ID'),
+            ),
+            const SizedBox(height: 12),
             Text('Current Status', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             AnimatedContainer(
@@ -49,10 +104,14 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _index < statuses.length - 1
-                  ? () => setState(() => _index++)
-                  : null,
-              icon: const Icon(Icons.play_arrow),
+              onPressed: _isSubmitting ? null : _advanceStatus,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_arrow),
               label: const Text('Advance Status'),
             ),
           ],
