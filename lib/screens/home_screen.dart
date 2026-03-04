@@ -219,8 +219,10 @@ class _HomeScreenState extends State<HomeScreen>
             ..._trips.map(
               (trip) => Card(
                 child: ListTile(
-                  title: Text('Trip #${trip.id} • ${trip.fare.toStringAsFixed(2)} EGP'),
-                  subtitle: Text('Status: ${trip.status ?? 'unknown'}'),
+                  title: Text('Trip #${trip.id}'),
+                  subtitle: Text(
+                    'Fare: ${trip.fare.toStringAsFixed(2)} EGP • Status: ${trip.status ?? 'unknown'}',
+                  ),
                 ),
               ),
             ),

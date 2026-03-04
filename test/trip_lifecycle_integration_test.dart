@@ -170,7 +170,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('Trip #1'), findsOneWidget);
+    expect(find.text('Trip #1'), findsOneWidget);
 
     await tester.pumpWidget(MaterialApp(home: NotificationsScreen(apiClient: apiClient)));
     await tester.pumpAndSettle();
