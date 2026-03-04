@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_client.dart';
+
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, required this.onAuthenticated});
 
@@ -13,8 +15,10 @@ class _AuthScreenState extends State<AuthScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _apiClient = ApiClient();
 
   bool _registerMode = false;
+  bool _isSubmitting = false;
   String _selectedRole = 'rider';
   int _onboardingPage = 0;
 
@@ -24,6 +28,52 @@ class _AuthScreenState extends State<AuthScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitAuth() async {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty || (_registerMode && email.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      if (_registerMode) {
+        await _apiClient.register(
+          username: username,
+          email: email,
+          password: password,
+          role: _selectedRole,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration succeeded. Logging you in...')),
+        );
+      }
+
+      await _apiClient.login(username, password);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Connected to server successfully.')));
+      widget.onAuthenticated(_selectedRole);
+    } catch (e) {
+      if (!mounted) return;
+      final rawError = e.toString();
+      final message = rawError.contains('failed') || rawError.contains('SocketException')
+          ? 'Connection failed. Please check your internet or server URL.'
+          : 'Invalid data or credentials. Please verify and try again.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message ($rawError)')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
@@ -133,7 +183,8 @@ class _AuthScreenState extends State<AuthScreen> {
               _PressableActionButton(
                 label: _registerMode ? 'Create Account' : 'Continue',
                 icon: _registerMode ? Icons.person_add : Icons.login,
-                onPressed: () => widget.onAuthenticated(_selectedRole),
+                isLoading: _isSubmitting,
+                onPressed: _submitAuth,
               ),
             ],
           ),
@@ -179,11 +230,13 @@ class _PressableActionButton extends StatefulWidget {
     required this.label,
     required this.icon,
     required this.onPressed,
+    required this.isLoading,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   @override
   State<_PressableActionButton> createState() => _PressableActionButtonState();
@@ -195,18 +248,26 @@ class _PressableActionButtonState extends State<_PressableActionButton> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.97),
-      onTapCancel: () => setState(() => _scale = 1),
-      onTapUp: (_) {
-        setState(() => _scale = 1);
-        widget.onPressed();
-      },
+      onTapDown: widget.isLoading ? null : (_) => setState(() => _scale = 0.97),
+      onTapCancel: widget.isLoading ? null : () => setState(() => _scale = 1),
+      onTapUp: widget.isLoading
+          ? null
+          : (_) {
+              setState(() => _scale = 1);
+              widget.onPressed();
+            },
       child: AnimatedScale(
         duration: const Duration(milliseconds: 110),
         scale: _scale,
         child: FilledButton.icon(
-          onPressed: widget.onPressed,
-          icon: Icon(widget.icon),
+          onPressed: widget.isLoading ? null : widget.onPressed,
+          icon: widget.isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(widget.icon),
           label: Text(widget.label),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),

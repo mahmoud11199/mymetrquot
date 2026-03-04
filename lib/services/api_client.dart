@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -17,9 +18,36 @@ class ApiClient {
 
   final http.Client _client;
 
+  Future<http.Response> _post(
+    String endpoint, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    final uri = Uri.parse('$baseUrl/$endpoint');
+    debugPrint('ApiClient POST baseUrl=$baseUrl endpoint=$endpoint');
+    final response = await _client.post(uri, headers: headers, body: body);
+    debugPrint(
+      'ApiClient response endpoint=$endpoint statusCode=${response.statusCode} body=${response.body}',
+    );
+    return response;
+  }
+
+  Future<http.Response> _get(
+    String endpoint, {
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse('$baseUrl/$endpoint');
+    debugPrint('ApiClient GET baseUrl=$baseUrl endpoint=$endpoint');
+    final response = await _client.get(uri, headers: headers);
+    debugPrint(
+      'ApiClient response endpoint=$endpoint statusCode=${response.statusCode} body=${response.body}',
+    );
+    return response;
+  }
+
   Future<Map<String, dynamic>> login(String username, String password) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/login.php'),
+    final response = await _post(
+      'login.php',
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'password': password}),
     );
@@ -44,8 +72,8 @@ class ApiClient {
     required String password,
     required String role,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/register.php'),
+    final response = await _post(
+      'register.php',
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'username': username,
@@ -82,8 +110,8 @@ class ApiClient {
   }
 
   Future<int> createRideRequest(Map<String, dynamic> payload) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/create_ride_request.php'),
+    final response = await _post(
+      'create_ride_request.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode(payload),
     );
@@ -95,8 +123,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchRideRequests() async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_ride_requests.php'),
+    final response = await _get(
+      'get_ride_requests.php',
       headers: await _authHeaders(),
     );
     if (response.statusCode != 200) {
@@ -107,8 +135,8 @@ class ApiClient {
   }
 
   Future<int> createOffer(Map<String, dynamic> payload) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/create_offer.php'),
+    final response = await _post(
+      'create_offer.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode(payload),
     );
@@ -120,8 +148,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchOffers(int rideRequestId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_offers.php?ride_request_id=$rideRequestId'),
+    final response = await _get(
+      'get_offers.php?ride_request_id=$rideRequestId',
       headers: await _authHeaders(),
     );
     if (response.statusCode != 200) {
@@ -132,8 +160,8 @@ class ApiClient {
   }
 
   Future<void> updateOfferStatus(int offerId, String status) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/update_offer_status.php'),
+    final response = await _post(
+      'update_offer_status.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({'offer_id': offerId, 'status': status}),
     );
@@ -152,8 +180,8 @@ class ApiClient {
     int? offerId,
     String status = 'created',
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/add_trip.php'),
+    final response = await _post(
+      'add_trip.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({
         'rider_id': riderId,
@@ -173,8 +201,8 @@ class ApiClient {
   }
 
   Future<List<Trip>> fetchTrips() async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_trips.php'),
+    final response = await _get(
+      'get_trips.php',
       headers: await _authHeaders(),
     );
 
@@ -191,8 +219,8 @@ class ApiClient {
   }
 
   Future<void> updateTripStatus(int tripId, String status) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/update_trip_status.php'),
+    final response = await _post(
+      'update_trip_status.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({'trip_id': tripId, 'status': status}),
     );
@@ -203,8 +231,8 @@ class ApiClient {
   }
 
   Future<void> deleteTrip(int id) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/delete_trip.php'),
+    final response = await _post(
+      'delete_trip.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({'id': id}),
     );
@@ -219,8 +247,8 @@ class ApiClient {
     required int receiverId,
     required String content,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/send_message.php'),
+    final response = await _post(
+      'send_message.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({
         'ride_request_id': rideRequestId,
@@ -236,8 +264,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchMessages(int rideRequestId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_messages.php?ride_request_id=$rideRequestId'),
+    final response = await _get(
+      'get_messages.php?ride_request_id=$rideRequestId',
       headers: await _authHeaders(),
     );
     if (response.statusCode != 200) {
@@ -253,8 +281,8 @@ class ApiClient {
     required int score,
     String? comment,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/submit_rating.php'),
+    final response = await _post(
+      'submit_rating.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({
         'trip_id': tripId,
@@ -269,8 +297,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_notifications.php'),
+    final response = await _get(
+      'get_notifications.php',
       headers: await _authHeaders(),
     );
     if (response.statusCode != 200) {
@@ -281,8 +309,8 @@ class ApiClient {
   }
 
   Future<void> markNotificationRead(int id) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/mark_notification_read.php'),
+    final response = await _post(
+      'mark_notification_read.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({'id': id}),
     );
@@ -298,8 +326,8 @@ class ApiClient {
     double speedKmh = 0,
     double heading = 0,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/update_location.php'),
+    final response = await _post(
+      'update_location.php',
       headers: await _authHeaders(json: true),
       body: jsonEncode({
         'trip_id': tripId,
@@ -315,8 +343,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> fetchTripRoute(int tripId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/get_trip_route.php?trip_id=$tripId'),
+    final response = await _get(
+      'get_trip_route.php?trip_id=$tripId',
       headers: await _authHeaders(),
     );
     if (response.statusCode != 200) {
