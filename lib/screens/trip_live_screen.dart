@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 
 class TripLiveScreen extends StatefulWidget {
-  const TripLiveScreen({super.key});
+  const TripLiveScreen({super.key, ApiClient? apiClient}) : _apiClient = apiClient;
+
+  final ApiClient? _apiClient;
 
   @override
   State<TripLiveScreen> createState() => _TripLiveScreenState();
@@ -12,9 +14,17 @@ class TripLiveScreen extends StatefulWidget {
 class _TripLiveScreenState extends State<TripLiveScreen> {
   final statuses = ['driver_arriving', 'in_progress', 'completed'];
   final _tripIdController = TextEditingController();
-  final _apiClient = ApiClient();
+  late final ApiClient _apiClient;
   int _index = 0;
   bool _isSubmitting = false;
+  List<String> _tripSummaries = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _apiClient = widget._apiClient ?? ApiClient();
+    _loadTrips();
+  }
 
   @override
   void dispose() {
@@ -58,6 +68,23 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _loadTrips() async {
+    final trips = await _apiClient.fetchTrips();
+    if (!mounted) return;
+    setState(() {
+      _tripSummaries = trips
+          .map((trip) => 'Trip #${trip.id} • ${trip.status ?? 'unknown'}')
+          .toList();
+    });
+  }
+
+  Future<void> _deleteTrip() async {
+    final tripId = int.tryParse(_tripIdController.text.trim());
+    if (tripId == null) return;
+    await _apiClient.deleteTrip(tripId);
+    await _loadTrips();
   }
 
   @override
@@ -114,6 +141,11 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
                   : const Icon(Icons.play_arrow),
               label: const Text('Advance Status'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _deleteTrip, child: const Text('Delete Trip')),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _loadTrips, child: const Text('Refresh Trips')),
+            ..._tripSummaries.map((item) => Text(item)),
           ],
         ),
       ),

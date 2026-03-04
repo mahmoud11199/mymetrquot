@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../models/user.dart';
 import '../services/api_client.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, required this.onAuthenticated});
 
-  final ValueChanged<String> onAuthenticated;
+  final ValueChanged<User> onAuthenticated;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -56,26 +57,21 @@ Future<void> _submitAuth() async {
       );
     }
 
-    // ✅ هنا بنخزن نتيجة تسجيل الدخول
     final loginResult = await _apiClient.login(username, password);
     if (!mounted) return;
 
-    // استخراج بيانات المستخدم من الاستجابة
-  final user = loginResult['user'];
+    final userMap = loginResult['user'];
 
-if (user == null || user is! Map<String, dynamic>) {
-  throw Exception('Invalid server response');
-}
+    if (userMap == null || userMap is! Map<String, dynamic>) {
+      throw Exception('Invalid server response');
+    }
 
-final userId = user['id']?.toString() ?? '';
-final userName = user['username'] ?? '';
-final userRole = user['role'] ?? '';
+    final user = User.fromJson(userMap);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Connected to server successfully.')));
 
-    // ✅ بدل ما نبعت _selectedRole، نبعت بيانات السيرفر
-    widget.onAuthenticated("$userId|$userName|$userRole");
+    widget.onAuthenticated(user);
   } catch (e) {
     if (!mounted) return;
     final rawError = e.toString();
