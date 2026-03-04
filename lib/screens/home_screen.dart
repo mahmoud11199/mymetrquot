@@ -2,15 +2,19 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../models/trip.dart';
+import '../models/user.dart';
 import '../services/api_client.dart';
 import 'ratings_screen.dart';
 import 'ride_request_details_screen.dart';
 import 'trip_live_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.role});
+  const HomeScreen({super.key, required this.user, ApiClient? apiClient})
+      : _apiClient = apiClient;
 
-  final String role;
+  final User user;
+  final ApiClient? _apiClient;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,18 +25,40 @@ class _HomeScreenState extends State<HomeScreen>
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _fareController = TextEditingController(text: '50');
-  final _apiClient = ApiClient();
+  late final ApiClient _apiClient;
   late final AnimationController _markerController;
   bool _requestPlaced = false;
   bool _isSubmittingRideRequest = false;
+  bool _isLoadingTrips = false;
+  List<Trip> _trips = const [];
 
   @override
   void initState() {
     super.initState();
+    _apiClient = widget._apiClient ?? ApiClient();
     _markerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+    _loadTrips();
+  }
+
+  Future<void> _loadTrips() async {
+    setState(() => _isLoadingTrips = true);
+    try {
+      final trips = await _apiClient.fetchTrips();
+      if (!mounted) return;
+      setState(() => _trips = trips);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load trips.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingTrips = false);
+      }
+    }
   }
 
   @override
@@ -176,6 +202,27 @@ class _HomeScreenState extends State<HomeScreen>
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text('Ride request created and sent to backend successfully.'),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Trips', style: Theme.of(context).textTheme.titleLarge),
+              IconButton(onPressed: _loadTrips, icon: const Icon(Icons.refresh)),
+            ],
+          ),
+          if (_isLoadingTrips)
+            const Center(child: CircularProgressIndicator())
+          else if (_trips.isEmpty)
+            const Text('No trips available yet.')
+          else
+            ..._trips.map(
+              (trip) => Card(
+                child: ListTile(
+                  title: Text('Trip #${trip.id} • ${trip.fare.toStringAsFixed(2)} EGP'),
+                  subtitle: Text('Status: ${trip.status ?? 'unknown'}'),
+                ),
+              ),
             ),
           const SizedBox(height: 12),
           Wrap(

@@ -1,15 +1,55 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_client.dart';
+
 class RatingsScreen extends StatefulWidget {
-  const RatingsScreen({super.key});
+  const RatingsScreen({super.key, ApiClient? apiClient}) : _apiClient = apiClient;
+
+  final ApiClient? _apiClient;
 
   @override
   State<RatingsScreen> createState() => _RatingsScreenState();
 }
 
 class _RatingsScreenState extends State<RatingsScreen> {
+  late final ApiClient _apiClient;
+  final _tripIdController = TextEditingController();
+  final _rateeIdController = TextEditingController();
   int _riderStars = 0;
   int _driverStars = 0;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiClient = widget._apiClient ?? ApiClient();
+  }
+
+  @override
+  void dispose() {
+    _tripIdController.dispose();
+    _rateeIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final tripId = int.tryParse(_tripIdController.text.trim());
+    final rateeId = int.tryParse(_rateeIdController.text.trim());
+    final score = _riderStars > 0 ? _riderStars : _driverStars;
+    if (tripId == null || rateeId == null || score < 1) return;
+    setState(() => _submitting = true);
+    try {
+      await _apiClient.submitRating(tripId: tripId, rateeId: rateeId, score: score);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rating submitted.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
 
   Widget _starRow(int selected, ValueChanged<int> onSelect) {
     return Row(
@@ -39,6 +79,16 @@ class _RatingsScreenState extends State<RatingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            TextField(
+              controller: _tripIdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Trip ID'),
+            ),
+            TextField(
+              controller: _rateeIdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Ratee User ID'),
+            ),
             Text('Rate your driver', style: Theme.of(context).textTheme.titleLarge),
             _starRow(_riderStars, (v) => setState(() => _riderStars = v)),
             const SizedBox(height: 16),
@@ -46,7 +96,7 @@ class _RatingsScreenState extends State<RatingsScreen> {
             _starRow(_driverStars, (v) => setState(() => _driverStars = v)),
             const Spacer(),
             FilledButton(
-              onPressed: () {},
+              onPressed: _submitting ? null : _submit,
               child: const Text('Submit Feedback'),
             ),
           ],

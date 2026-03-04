@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'models/user.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_shell.dart';
 
@@ -57,20 +58,17 @@ class AppEntryPoint extends StatefulWidget {
 }
 
 class _AppEntryPointState extends State<AppEntryPoint> {
-  bool _authenticated = false;
-  String _role = 'rider';
+  User? _authenticatedUser;
 
-  void _onAuthCompleted(String role) {
+  void _onAuthCompleted(User user) {
     setState(() {
-      _authenticated = true;
-      _role = role;
+      _authenticatedUser = user;
     });
   }
 
   void _logout() {
     setState(() {
-      _authenticated = false;
-      _role = 'rider';
+      _authenticatedUser = null;
     });
   }
 
@@ -89,10 +87,10 @@ class _AppEntryPointState extends State<AppEntryPoint> {
           child: SlideTransition(position: offsetAnimation, child: child),
         );
       },
-      child: _authenticated
+      child: _authenticatedUser != null
           ? HomeShell(
               key: const ValueKey('home-shell'),
-              role: _role,
+              user: _authenticatedUser!,
               onLogout: _logout,
             )
           : AuthScreen(

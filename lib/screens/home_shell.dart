@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/user.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import 'admin_panel_screen.dart';
@@ -9,11 +10,11 @@ import 'notifications_screen.dart';
 class HomeShell extends StatefulWidget {
   const HomeShell({
     super.key,
-    required this.role,
+    required this.user,
     required this.onLogout,
   });
 
-  final String role;
+  final User user;
   final VoidCallback onLogout;
 
   @override
@@ -45,7 +46,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(role: widget.role),
+      HomeScreen(user: widget.user),
       const NotificationsScreen(),
       const AdminPanelScreen(),
     ];
@@ -66,7 +67,7 @@ class _HomeShellState extends State<HomeShell> {
             ),
             ListTile(
               leading: const Icon(Icons.person),
-              title: Text('Role: ${widget.role}'),
+              title: Text('${widget.user.username} (${widget.user.role})'),
             ),
             const ListTile(
               leading: Icon(Icons.settings),
