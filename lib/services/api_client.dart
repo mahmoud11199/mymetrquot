@@ -10,8 +10,8 @@ class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
   static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'https://alalameyaforcontracting.iceiy.com/backend
-';
+      dotenv.env['API_BASE_URL'] ?? 'https://alalameyaforcontracting.iceiy.com/backend';
+
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _tokenKey = 'auth_token';
 
