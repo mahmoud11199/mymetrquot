@@ -2,15 +2,22 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../models/trip.dart';
+import '../models/user.dart';
 import '../services/api_client.dart';
 import 'ratings_screen.dart';
 import 'ride_request_details_screen.dart';
 import 'trip_live_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.role});
+  const HomeScreen({
+    super.key,
+    required this.user,
+    this.apiClient,
+  });
 
-  final String role;
+  final User user;
+  final ApiClient? apiClient;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,18 +28,22 @@ class _HomeScreenState extends State<HomeScreen>
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _fareController = TextEditingController(text: '50');
-  final _apiClient = ApiClient();
+  late final ApiClient _apiClient;
   late final AnimationController _markerController;
   bool _requestPlaced = false;
   bool _isSubmittingRideRequest = false;
+  bool _isLoadingTrips = false;
+  List<Trip> _trips = const [];
 
   @override
   void initState() {
     super.initState();
+    _apiClient = widget.apiClient ?? ApiClient();
     _markerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+    _loadTrips();
   }
 
   @override
@@ -42,6 +53,28 @@ class _HomeScreenState extends State<HomeScreen>
     _fareController.dispose();
     _markerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTrips() async {
+    setState(() => _isLoadingTrips = true);
+    try {
+      final trips = await _apiClient.fetchTrips();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _trips = trips);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to load trips from server.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingTrips = false);
+      }
+    }
   }
 
   void _openWithTransition(Widget screen) {
@@ -178,6 +211,26 @@ class _HomeScreenState extends State<HomeScreen>
               child: Text('Ride request created and sent to backend successfully.'),
             ),
           const SizedBox(height: 12),
+          Text('Your Trips', style: Theme.of(context).textTheme.titleLarge),
+          if (_isLoadingTrips)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(),
+            )
+          else if (_trips.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No trips yet.'),
+            )
+          else
+            ..._trips.take(3).map(
+                  (trip) => Card(
+                    child: ListTile(
+                      title: Text('Trip #${trip.id} • ${trip.fare.toStringAsFixed(0)} EGP'),
+                      subtitle: Text('Status: ${trip.status ?? 'unknown'}'),
+                    ),
+                  ),
+                ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -188,12 +241,16 @@ class _HomeScreenState extends State<HomeScreen>
                 label: const Text('Offers & Chat'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _openWithTransition(const TripLiveScreen()),
+                onPressed: () => _openWithTransition(
+                  TripLiveScreen(apiClient: _apiClient),
+                ),
                 icon: const Icon(Icons.route),
                 label: const Text('Trip Live'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _openWithTransition(const RatingsScreen()),
+                onPressed: () => _openWithTransition(
+                  RatingsScreen(apiClient: _apiClient),
+                ),
                 icon: const Icon(Icons.star),
                 label: const Text('Ratings'),
               ),
@@ -204,3 +261,4 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 }
+

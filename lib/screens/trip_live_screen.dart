@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../models/trip.dart';
 import '../services/api_client.dart';
 
 class TripLiveScreen extends StatefulWidget {
-  const TripLiveScreen({super.key});
+  const TripLiveScreen({super.key, this.apiClient});
+
+  final ApiClient? apiClient;
 
   @override
   State<TripLiveScreen> createState() => _TripLiveScreenState();
@@ -12,14 +15,38 @@ class TripLiveScreen extends StatefulWidget {
 class _TripLiveScreenState extends State<TripLiveScreen> {
   final statuses = ['driver_arriving', 'in_progress', 'completed'];
   final _tripIdController = TextEditingController();
-  final _apiClient = ApiClient();
+  late final ApiClient _apiClient;
   int _index = 0;
   bool _isSubmitting = false;
+  bool _isLoadingTrips = false;
+  List<Trip> _trips = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _apiClient = widget.apiClient ?? ApiClient();
+    _loadTrips();
+  }
 
   @override
   void dispose() {
     _tripIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTrips() async {
+    setState(() => _isLoadingTrips = true);
+    try {
+      final trips = await _apiClient.fetchTrips();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _trips = trips);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingTrips = false);
+      }
+    }
   }
 
   Future<void> _advanceStatus() async {
@@ -44,6 +71,7 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
       await _apiClient.updateTripStatus(tripId, statuses[nextIndex]);
       if (!mounted) return;
       setState(() => _index = nextIndex);
+      await _loadTrips();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Trip status updated to ${statuses[nextIndex]}.')),
       );
@@ -114,6 +142,23 @@ class _TripLiveScreenState extends State<TripLiveScreen> {
                   : const Icon(Icons.play_arrow),
               label: const Text('Advance Status'),
             ),
+            const SizedBox(height: 20),
+            Text('Trips from API', style: Theme.of(context).textTheme.titleLarge),
+            if (_isLoadingTrips)
+              const CircularProgressIndicator()
+            else
+              Expanded(
+                child: ListView(
+                  children: _trips
+                      .map(
+                        (trip) => ListTile(
+                          title: Text('Trip #${trip.id}'),
+                          subtitle: Text('Status: ${trip.status ?? 'unknown'}'),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
           ],
         ),
       ),
