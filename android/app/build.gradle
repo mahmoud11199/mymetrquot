@@ -23,7 +23,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace = "com.example.mymetrquot"
+    namespace = "com.mymetrquot.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -37,16 +37,25 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.mymetrquot"
+        applicationId = "com.mymetrquot.app"
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            storeFile = file(MYAPP_RELEASE_STORE_FILE)
+            storePassword = MYAPP_RELEASE_STORE_PASSWORD
+            keyAlias = MYAPP_RELEASE_KEY_ALIAS
+            keyPassword = MYAPP_RELEASE_KEY_PASSWORD
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
         }
     }
 }
